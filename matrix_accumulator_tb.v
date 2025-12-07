@@ -55,17 +55,10 @@ module matrix_accumulator_tb();
         wait (rst_done);    //wait for initial reset
         switches = {{2'b11,2'b10,2'b01,2'b10},{2'b01,2'b11,2'b00,2'b10}};  
         //{A,B}
-        
-        
-        #7 left = 1;   //load ram
+        #10 left = 1;   //load ram
         wait (load_done);   
-        
-        
-        //#10
-        #7 left = 0;   //disable load ram
+        #10 left = 0;   //disable load ram
         right = 1;  //toggle start
-        
-        
         wait (dut.start_button);
         #10 right = 0;  //disable start
         wait (dut.done);    //wait for fsm to finish
@@ -74,29 +67,22 @@ module matrix_accumulator_tb();
         wait (dut.up_clean);    //ensure signal is debounced
         wait (dut.seg.conv_done);   //wait for result to compute
         #10 up = 0; 
-        //wait (!dut.up_clean);   //wait for debounced signal to go low
         
         #10 left = 1;
         wait (dut.left_clean); 
         wait (dut.seg.conv_done);
         #10 left = 0;
-        //wait (!dut.left_clean);
         
         #10 right = 1;
         wait (dut.right_clean); 
         wait (dut.seg.conv_done);
         #10 right = 0;
-        //wait (!dut.right_clean);
         
         #10 down = 1;
         wait (dut.down_clean); 
         wait (dut.seg.conv_done);
         #10 down = 0;
         wait (!dut.down_clean);
-        
-        
-        
-        $finish;
         
         
         //test 2nd input case + reset functionality
@@ -109,7 +95,7 @@ module matrix_accumulator_tb();
         
         switches = {{2'b01,2'b01,2'b10,2'b11},{2'b11,2'b01,2'b11,2'b10}};  
         //{A,B}
-        left = 1;   //load ram
+        #10 left = 1;   //load ram
         wait (load_done);   
         #10 left = 0;   //disable load ram
         right = 1;  //toggle start
@@ -121,19 +107,16 @@ module matrix_accumulator_tb();
         wait (dut.up_clean);    //ensure signal is debounced
         wait (dut.seg.conv_done);   //wait for result to compute
         #10 up = 0; 
-        //wait (!dut.up_clean);   //wait for debounced signal to go low
         
         #10 left = 1;
         wait (dut.left_clean); 
         wait (dut.seg.conv_done);
         #10 left = 0;
-        //wait (!dut.left_clean);
         
         #10 right = 1;
         wait (dut.right_clean); 
         wait (dut.seg.conv_done);
         #10 right = 0;
-        //wait (!dut.right_clean);
         
         #10 down = 1;
         wait (dut.down_clean); 
