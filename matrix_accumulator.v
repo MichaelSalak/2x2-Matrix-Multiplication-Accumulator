@@ -29,11 +29,7 @@
 // - DOWN: none/C22
 module top(input clk, rst_raw, up, left, right, down, 
            input [15:0]switches, output dp,a,b,c,d,e,f,g, output [3:0]anode,
-           output load_done, output reg fsm_done
-           
-           ,output reg Test0,Test1,Test2,Test3,Test4,Test5,Test6,Test7,Test8,Test9,Test10, output [1:0] it);
-    
-
+           output load_done, output reg fsm_done);
 
     wire [7:0] A, B;    //input matrices to write in ram (initialize)
     wire [3:0] init_ram_addr, fsm_ram_addr, ram_addr;   //multiplexed
@@ -74,52 +70,7 @@ module top(input clk, rst_raw, up, left, right, down,
                   .write_en(init_ram_w_en), 
                   .done(load_done), 
                   .ram_addr(init_ram_addr),
-                  .w_ram_data(init_w_ram_data));    
-    
-    
-    
-    wire test0,test1,test2,test3,test4,test5,test6,test7,test8,test9,test10;
-    always @(posedge clk) begin
-        if(rst) begin
-            Test0 <= 0;
-            Test1 <= 0;
-            Test2 <= 0;
-            Test3 <= 0;
-            Test4 <= 0;
-            Test5 <= 0;
-            Test6 <= 0;
-            Test7 <= 0;
-            Test8 <= 0;
-            Test9 <= 0;
-            Test10 <= 0;
-        end else if(test0)
-            Test0 <= test0;
-        else if(test1)
-            Test1 <= test1;
-        else if(test2)
-            Test2 <= test2;
-        else if(test3)
-            Test3 <= test3;
-        else if(test4)
-            Test4 <= test4;
-        else if(test5)
-            Test5 <= test5;
-        else if(test6)
-            Test6 <= test6;
-        else if(test7)
-            Test7 <= test7;
-        else if(test8)
-            Test8 <= test8;
-        else if(test9)
-            Test9 <= test9;
-        else if(test10)
-            Test10 <= test10;
-    end
-            
-    
-    
-    
-    
+                  .w_ram_data(init_w_ram_data));   
     
     controller fsm(.clk(clk),
                    .rst(rst),
@@ -140,12 +91,7 @@ module top(input clk, rst_raw, up, left, right, down,
                    .C11(C11), 
                    .C12(C12), 
                    .C21(C21), 
-                   .C22(C22)
-                   
-                   
-                   
-                   
-                   ,.PS_test(PS_test) ,.test0(test0),.test1(test1),.test2(test2),.test3(test3),.test4(test4),.test5(test5),.test6(test6),.test7(test7),.test8(test8),.test9(test9),.test10(test10), .it(it));
+                   .C22(C22));
 
     register_file rf(.clk(clk), 
                      .rst(rst), 
@@ -159,10 +105,10 @@ module top(input clk, rst_raw, up, left, right, down,
                      .data1(A1), 
                      .data2(A2), 
                      .data3(B1), 
-                     .data4(B2));
+                     .data4(B2));               
     
     RAM8bit ram(.clk(clk), .rst(rst), .write_en(ram_w_en), .address(ram_addr), 
-                .w_data(w_ram_data), .r_data(r_ram_data));
+                .w_data(w_ram_data), .r_data(r_ram_data));       
     
     multiplier multi0(.A(A1), .B(B1), .product(pp0));
     multiplier multi1(.A(A2), .B(B2), .product(pp1));
@@ -320,10 +266,7 @@ module controller(input clk,
                   output reg acc_en,
                   output reg acc_clear,
                   output reg done,
-                  output reg [4:0] C11, C12, C21, C22
-                  
-                  ,output [3:0] PS_test, output reg test0,test1,test2,test3,test4,test5,test6,test7,test8,test9,test10,
-                  output [1:0] it);
+                  output reg [4:0] C11, C12, C21, C22);
 
     parameter IDLE = 0; 
     parameter READ_A1 = 1;
@@ -338,15 +281,8 @@ module controller(input clk,
     parameter DONE = 10;
     
     reg [3:0] PS, NS;
-    reg [1:0] iteration, next_it;    //track current process iteration
+    reg [2:0] iteration, next_it;    //track current process iteration
     reg [2:0] A1_addr, A2_addr, B1_addr, B2_addr; 
-    reg [4:0] NC11, NC12, NC21, NC22;   //for holding output matrix values
-    
-    
-    
-    assign PS_test = PS;
-    assign it = iteration;
-    
     
     //present state updates, iteration tracking
     always @(posedge clk) begin
@@ -359,14 +295,18 @@ module controller(input clk,
         end
     end
     
-    //output latching (prevents unessecary reads before displaying)
+    //output latching (prevents unessecary ram reads before displaying)
     always @(posedge clk) begin
         if(rst)
             {C11,C12,C21,C22} <= 0;
-        else if(PS != IDLE)
-            {C11,C12,C21,C22} <= {NC11,NC12,NC21,NC22};
-        else 
-            {C11,C12,C21,C22} <= {C11,C12,C21,C22};
+        else if(PS == WRITE) begin
+            case(iteration)
+                0: C11 <= acc;
+                1: C12 <= acc;
+                2: C21 <= acc;
+                3: C22 <= acc;
+            endcase
+        end 
     end
     
     //next state updates
@@ -381,7 +321,7 @@ module controller(input clk,
             MULTIPLY: NS = ADD;
             ADD: NS = WRITE;
             WRITE: NS = UPDATE;  
-            UPDATE: NS = (iteration == 3) ? DONE : READ_A1;  //repeat until finished
+            UPDATE: NS = (iteration == 4) ? DONE : READ_A1;  //repeat until finished
             DONE: NS = IDLE;    //loop for now
             default: NS = IDLE; 
         endcase     
@@ -397,41 +337,20 @@ module controller(input clk,
         endcase
     end
     
-    
+    //iteration updated via cases, not a counter (causes issues in hardware but not simulation???)
     always @(*) begin
         case(iteration)
             0: next_it = (PS == WRITE) ? 1 : 0;
             1: next_it = (PS == WRITE) ? 2 : 1;
             2: next_it = (PS == WRITE) ? 3 : 2;
+            3: next_it = (PS == WRITE) ? 4 : 3;
         endcase
     end
     
-    
     //main logic
     always @(*) begin
-    
-    
-        test0 = 0;
-        test1 = 0;
-        test2 = 0;
-        test3 = 0;
-        test4 = 0;
-        test5 = 0;
-        test6 = 0;
-        test7 = 0;
-        test8 = 0;
-        test9 = 0;
-        test10 = 0;
-        
-    
-    
         case(PS)
             IDLE: begin
-            
-            
-                test0 = 1;
-            
-            
                 ram_addr = 0;
                 rf_w_addr = 0;
                 ram_w_en = 0;
@@ -444,126 +363,56 @@ module controller(input clk,
                 acc_en = 0;
                 acc_clear = 0;
                 done = 0;
-                {NC11,NC12,NC21,NC22} = 0;
             end
             READ_A1: begin  
                 acc_clear = 0;  //allow accumulation in iteration > 0
                 rf_w_en = 1;
                 ram_addr = A1_addr;
-                
-                
-                
-                test1 = 1;
-                
-                
-                
             end
             LOAD_A1_READ_A2: begin    
                 rf_w_en = 1;
                 rf_w_addr = 0;
                 ram_addr = A2_addr;
-                
-                
-                
-                
-                test2 = 1;  //test
-                
-                
             end
             LOAD_A2_READ_B1: begin
                 rf_w_en = 1;
                 rf_w_addr = 1;   
                 ram_addr = B1_addr;
-                
-                
-                test3 = 1;
-                
-                
             end
             LOAD_B1_READ_B2: begin
                 rf_w_en = 1;
                 rf_w_addr = 2;
                 ram_addr = B2_addr;
-                
-                
-                
-                test4 = 1;
-                
-                
             end
             LOAD_B2: begin
                 rf_w_en = 1;
                 rf_w_addr = 3;
-                
-                
-                
-                test5 = 1;
-                
-                
             end
             MULTIPLY: begin
                 rf_w_en = 0;          
-                
-                
-                test6 = 1;
-                
-                 
             end
             ADD: begin
                 acc_en = 1;
                 acc_clear = 0;  //accumulate
-                
-                
-                test7 = 1;
-                
-                
             end
             WRITE: begin
-            
-            
-                test8 = 1;
-            
-            
-            
                 acc_en = 0;
                 ram_w_en = 1;
                 w_ram_data = {3'b000, acc};   //write accumulated result in ram
                 case(iteration) //write accumulated result locally for display (skip reads)
-                    0: begin
-                        ram_addr = 8; 
-                        NC11 = acc;
-                    end
-                    1: begin
-                        ram_addr = 9;
-                        NC12 = acc;
-                    end
-                    2: begin
-                        ram_addr = 10;
-                        NC21 = acc;
-                    end
-                    3: begin
-                        ram_addr = 11;
-                        NC22 = acc;
-                    end
+                    0: ram_addr = 8; 
+                    1: ram_addr = 9;
+                    2: ram_addr = 10;
+                    3: ram_addr = 11;
                 endcase
             end   
             UPDATE: begin
-            
-            
-                test9 = 1;
-            
-            
-                done = (iteration == 3) ? 1 : 0;    //trigger done early to 
+                done = (iteration == 4) ? 1 : 0;    //trigger done early to 
                 //prevent extra whole fsm cycle
                 ram_w_en = 0;
                 acc_clear = 1;  //reset accumulator
             end
             DONE: begin
-            
-            
-                test10 = 1;
-            
-            
                 done = 1;
             end
         endcase
@@ -609,6 +458,7 @@ endmodule
 
 //8 bit data width, 12 different addresses
 module RAM8bit(clk, rst, write_en, address, w_data, r_data);
+
     parameter DATA_W = 8;   //8 bit data
     parameter ADDR_CNT = 12;   //12 addresses (4 per matrix)
     parameter ADDR_W = $clog2(ADDR_CNT); //address bit width (4)
@@ -620,7 +470,7 @@ module RAM8bit(clk, rst, write_en, address, w_data, r_data);
     
     reg[DATA_W-1:0] mem[0:ADDR_CNT-1];  
     integer i;
-    
+
     always @(posedge clk) begin     
         if(rst) begin
             for(i=0; i<ADDR_CNT; i=i+1) 
@@ -648,7 +498,7 @@ module accumulator(input clk, rst, acc_en, clear, input [3:0] pp0, pp1,
         if(rst || clear)
             acc <= 0;   //0 on reset or clear signal
         else if(acc_en)
-            acc <= acc + pp0 + pp1; //accumulate intermediate products
+            acc <= pp0 + pp1; //accumulate intermediate products
         else
             acc <= acc;
     end
@@ -744,15 +594,15 @@ module display_controller(input clk,
             READ: NS = CONVERT;
             CONVERT: NS = conv_done ? DISPLAY : CONVERT; //wait for conversion completion
             DISPLAY: NS = (|{C11_button,C12_button,C21_button,C22_button}) 
-                           ? IDLE : DISPLAY;   //hold display until next button press
+                           ? READ : DISPLAY;   //hold display until next button press
         endcase
     end
 
     always @(*) begin
         case(PS)
             IDLE: begin
-                Cij <= 0;
-                conv_en <= 0;
+                Cij = 0;
+                conv_en = 0;
             end
             READ: begin
                 if(C11_button)
