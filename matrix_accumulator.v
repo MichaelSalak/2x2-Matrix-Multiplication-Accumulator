@@ -597,32 +597,25 @@ module display_controller(input clk,
                            ? READ : DISPLAY;   //hold display until next button press
         endcase
     end
-
-    always @(*) begin
-        case(PS)
-            IDLE: begin
-                Cij = 0;
-                conv_en = 0;
-            end
-            READ: begin
+    
+    always @(*) conv_en = (PS == CONVERT) ? 1 : 0;  //only enable conversion during convert state
+    
+    //Cij value must be clocked to hold value properly (when not pressed)
+    always @(posedge clk) begin
+        if(rst)
+            Cij <= 0;
+        else begin
+            if(PS == READ) begin
                 if(C11_button)
-                    Cij = C11;
+                    Cij <= C11;
                 else if(C12_button)
-                    Cij = C12;
+                    Cij <= C12;
                 else if(C21_button)
-                    Cij = C21;
+                    Cij <= C21;
                 else if(C22_button)
-                    Cij = C22;
-                else
-                    Cij = 0;    //default
+                    Cij <= C22;
             end
-            CONVERT: begin
-                conv_en = 1;
-            end
-            DISPLAY: begin
-                conv_en = 0;
-            end
-        endcase
+        end
     end
 endmodule
 
